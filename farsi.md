@@ -302,9 +302,9 @@ QJuryReward                       JuryRegistry
      +----------------------------+
 
 
+<div dir="rtl">
 
-
-جزئیات اتصال:
+# جزئیات اتصال:
 1. QJuryOracleInterface (یا QRandomMock)
 این قرارداد (یا mock) عدد تصادفی تولید می‌کند.
 
@@ -352,3 +352,5 @@ QJuryDispute داوران را انتخاب و به QJuryVote می‌فرستد.
 QJuryReward پس از اتمام رأی‌گیری داوران را پاداش یا جریمه می‌کند.
 
 JuryRegistry مسئول پرداخت‌ها و مدیریت stake است.
+
+</div>
