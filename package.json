@@ -1,0 +1,28 @@
+{
+  "name": "q-jury",
+  "version": "1.0.0",
+  "description": "A decentralized jury system for dispute resolution using QRandomness and Game Theory. Designed for DAO ecosystems, Web3 governance, and fair arbitration.",
+  "main": "hardhat.config.js",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/farshadbaharvand/Q-jury.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/farshadbaharvand/Q-jury/issues"
+  },
+  "homepage": "https://github.com/farshadbaharvand/Q-jury#readme",
+  "devDependencies": {
+    "hardhat": "^2.26.0"
+  }
+}
