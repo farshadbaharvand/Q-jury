@@ -1,92 +1,71 @@
+// === QJuryVote.sol ===
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-///********************************
 /// @title QJury Voting Contract
 /// @author Farshad Baharvand
 /// @notice Handles voting logic for selected jurors in a dispute
 /// @dev Relies on external registry and dispute contracts
-///********************************
 
 contract QJuryVote {
-    ///********************************
-    /// @dev Vote options for a dispute
-    ///********************************
-    enum VoteOption {
-        None,
-        Yes,
-        No,
-        Abstain
+    struct VoteSession {
+        address[] jurors;
+        mapping(address => bool) hasVoted;
+        mapping(address => bool) voteForPlaintiff;
+        uint8 votesForPlaintiff;
+        uint8 votesForDefendant;
+        bool finalized;
     }
 
-    struct Vote {
-        address juror;
-        VoteOption choice;
-        bool hasVoted;
+    mapping(uint256 => VoteSession) private voteSessions;
+
+    function initializeVote(uint256 disputeId, address[] calldata jurors) external {
+        VoteSession storage vs = voteSessions[disputeId];
+        require(!vs.finalized, "Already initialized");
+        vs.jurors = jurors;
     }
 
-    mapping(uint256 => mapping(address => Vote)) public disputeVotes; // disputeId => juror => vote
-    mapping(uint256 => address[]) public disputeJurors;              // disputeId => juror list
+    function castVote(uint256 disputeId, bool voteForPlaintiff) external {
+        VoteSession storage vs = voteSessions[disputeId];
+        require(!vs.finalized, "Already finalized");
 
-    address public disputeContract;
+        bool isJuror = false;
+        for (uint8 i = 0; i < vs.jurors.length; i++) {
+            if (vs.jurors[i] == msg.sender) {
+                isJuror = true;
+                break;
+            }
+        }
 
-    event JurorVoted(uint256 indexed disputeId, address indexed juror, VoteOption choice);
+        require(isJuror, "Not an assigned juror");
+        require(!vs.hasVoted[msg.sender], "Already voted");
 
-    modifier onlyDisputeContract() {
-        require(msg.sender == disputeContract, "Only dispute contract can call this");
-        _;
-    }
+        vs.hasVoted[msg.sender] = true;
+        vs.voteForPlaintiff[msg.sender] = voteForPlaintiff;
 
-    ///********************************
-    /// @notice Set the dispute contract address (once)
-    ///********************************
-    constructor(address _disputeContract) {
-        disputeContract = _disputeContract;
-    }
-
-    ///********************************
-    /// @notice Assign selected jurors to a dispute
-    /// @dev Called by dispute contract after juror selection
-    /// @param disputeId ID of the dispute
-    /// @param jurors List of selected jurors
-    ///********************************
-    function assignJurors(uint256 disputeId, address[] memory jurors) external onlyDisputeContract {
-        disputeJurors[disputeId] = jurors;
-        for (uint256 i = 0; i < jurors.length; i++) {
-            disputeVotes[disputeId][jurors[i]] = Vote({
-                juror: jurors[i],
-                choice: VoteOption.None,
-                hasVoted: false
-            });
+        if (voteForPlaintiff) {
+            vs.votesForPlaintiff++;
+        } else {
+            vs.votesForDefendant++;
         }
     }
 
-    ///********************************
-    /// @notice Cast vote for a dispute
-    /// @param disputeId ID of the dispute
-    /// @param choice VoteOption: Yes / No / Abstain
-    ///********************************
-    function castVote(uint256 disputeId, VoteOption choice) external {
-        require(choice != VoteOption.None, "Invalid vote option");
-        require(disputeVotes[disputeId][msg.sender].juror == msg.sender, "You are not a juror");
-        require(!disputeVotes[disputeId][msg.sender].hasVoted, "Already voted");
+    function finalizeVote(uint256 disputeId) external returns (address winner, address[] memory jurors, bool[] memory aligned) {
+        VoteSession storage vs = voteSessions[disputeId];
+        require(!vs.finalized, "Already finalized");
+        require(vs.votesForPlaintiff + vs.votesForDefendant == 3, "Voting not complete");
 
-        disputeVotes[disputeId][msg.sender].choice = choice;
-        disputeVotes[disputeId][msg.sender].hasVoted = true;
+        vs.finalized = true;
+        winner = vs.votesForPlaintiff > vs.votesForDefendant ? tx.origin : msg.sender;
 
-        emit JurorVoted(disputeId, msg.sender, choice);
-    }
+        jurors = vs.jurors;
+        aligned = new bool ;
 
-    ///********************************
-    /// @notice Get all juror votes for a dispute (off-chain indexing)
-    /// @param disputeId ID of the dispute
-    ///********************************
-    function getJurorVotes(uint256 disputeId) external view returns (Vote[] memory votes) {
-        address[] memory jurors = disputeJurors[disputeId];
-        votes = new Vote[](jurors.length);
-
-        for (uint256 i = 0; i < jurors.length; i++) {
-            votes[i] = disputeVotes[disputeId][jurors[i]];
+        for (uint8 i = 0; i < 3; i++) {
+            bool votedForPlaintiff = vs.voteForPlaintiff[vs.jurors[i]];
+            bool isAligned = (vs.votesForPlaintiff > vs.votesForDefendant && votedForPlaintiff) ||
+                             (vs.votesForDefendant > vs.votesForPlaintiff && !votedForPlaintiff);
+            aligned[i] = isAligned;
         }
     }
 }
